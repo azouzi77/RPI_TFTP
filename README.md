@@ -29,7 +29,7 @@ Client Packages:
        +-------------------------------+-------------------------------+
        |Resources                      |None                           |
        +-------------------------------+-------------------------------+
-       |Error                          |None                           |
+       |Error                          |Resources                      |
        +-------------------------------+-------------------------------+
        |Get                            |Resources, Timer, Error        |
        +-------------------------------+-------------------------------+
@@ -96,12 +96,13 @@ Client Packages:
         __file_exist__ == 0x06
         
         SendError()
+        IsCritical()
         PrintError()
     
     Server Side:
     
     This package is used to get error from the client while the client is transferring a file and exit the communication
-    between them. It used also to send error message to the receiver.
+    between them. It used also to send error message to the receiver. Error message send by this package will be:
     
         ->not defined (0)
         ->file not found (1)
@@ -153,3 +154,19 @@ Client Packages:
     
         GetAck()
         GetData()
+    
+    On client side:
+    
+        getAck() must call IsCritical() on receiving error instead of ack message
+        getData() must call IsCritical() on receiving error instead of data message
+        
+    if the error is critical the function IsCritical() will return -1 and then we will print the error 
+    message and close the connection and exit program.
+    
+    on server side:
+    
+        getAck() must call IsCritical() on receiving error instead of ack message
+        getData() must call IsCritical() on receiving error instead of data message
+        
+    if the error is critical the function will IsCritical() return -1, closing the connection 
+    and then we will back to wait for connection loop.
