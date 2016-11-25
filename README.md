@@ -6,13 +6,15 @@ Server Packages:
        +-------------------------------+-------------------------------+
        |Timer                          |None                           |
        +-------------------------------+-------------------------------+
-       |Ressources                     |None                           |
+       |Resources                      |None                           |
        +-------------------------------+-------------------------------+
-       |GetMethode                     |Ressources, Timer              |
+       |Error                          |Resources                      |
        +-------------------------------+-------------------------------+
-       |PutMethode                     |Ressources                     |
+       |Get                            |Resources, Timer               |
        +-------------------------------+-------------------------------+
-       |Core                           |Get, Put                       |
+       |Put                            |Resources, Error               |
+       +-------------------------------+-------------------------------+
+       |Core                           |Get, Put, Resources            |
        +-------------------------------+-------------------------------+
        |Main.py                        |Core                           |
        +-------------------------------+-------------------------------+
@@ -25,17 +27,129 @@ Client Packages:
        +-------------------------------+-------------------------------+
        |Timer                          |None                           |
        +-------------------------------+-------------------------------+
-       |Ressources                     |None                           |
+       |Resources                      |None                           |
        +-------------------------------+-------------------------------+
-       |GetMethode                     |Ressources, Timer              |
+       |Error                          |None                           |
        +-------------------------------+-------------------------------+
-       |PutMethode                     |Ressources                     |
+       |Get                            |Resources, Timer, Error        |
        +-------------------------------+-------------------------------+
-       |Core                           |Get, Put                       |
+       |Put                            |Resources                      |
        +-------------------------------+-------------------------------+
-       |Request                        |Ressources, StateMachine       |
+       |Core                           |Get, Put, Resources            |
        +-------------------------------+-------------------------------+
-       |Main.py                        |Core                           |
+       |Request                        |Core                           |
+       +-------------------------------+-------------------------------+
+       |Main.py                        |Request                        |
        +-------------------------------+-------------------------------+
 
+* Timer package:
 
+    This package will be use by the sender part of the server and the client.
+    It will only used to start, restart and cancel timer when the one of those system send data to the other.
+    
+    content:
+    
+        StartTimer()
+        CancelTimer()
+        RestartTimer()
+    
+* Resources package:
+    
+    This package will contain some defined resources for the core package and the main file.
+    It will be used by Get, Put and Core Package on both system.
+    
+    content:
+    
+        DATA_SIZE = 512
+        READ_REQUEST = 0x01
+        WRITE_REQUEST = 0x02
+        DATA = 0x03
+        ACK = 0x04
+        ERROR = 0x05
+        OCTAL_MODE = "octet"
+        MAX_TIMER_EXCEED = 6
+        TIMER = 10
+    
+* Error Package:
+    
+    both will send error to the other part but works differently on the client and server side.
+    
+    Client Side:
+    
+    This package is used to print understandable error for the user while he try to send a file to the server or when
+    he retrieve a file from the server. It won't send error when try to sending a file that the user can't access, this
+    case is solved by the Request package, it is ask on Request package if you would overwrite the local file with 
+    the distant file. Error message send by this package will be:
+     
+        ->not defined (0)
+        ->disk full or allocation exceeded (3)
+        ->unknown transfer id (4)
+    
+    content:
+    
+        __error_not__defined__ = 0x00
+        __file_not_found__ = 0x01
+        __access_violation__ = 0x02
+        __disk_full__ = 0x03
+        __id_error__ = 0x04
+        __illegal_operation__ = 0x05
+        __file_exist__ == 0x06
+        
+        SendError()
+        PrintError()
+    
+    Server Side:
+    
+    This package is used to get error from the client while the client is transferring a file and exit the communication
+    between them. It used also to send error message to the receiver.
+    
+        ->not defined (0)
+        ->file not found (1)
+        ->access violation (2)
+        ->disk full or allocation exceeded (3)
+        ->unknown transfer id (4)
+        ->illegal tftp operation (5)
+    
+    content:
+    
+        __error_not__defined__ = 0x00
+        __file_not_found__ = 0x01
+        __access_violation__ = 0x02
+        __disk_full__ = 0x03
+        __id_error__ = 0x04
+        __illegal_operation__ = 0x05
+        
+        SendError()
+        IsCritical()
+    
+* Put package:
+    
+    This package is used to send file to a receiver, no timer is requested for this part.
+    It will be used by the Core package and need Resources package.
+    On the server side it require Error package for sending error to client (see server Error package). 
+    
+    content:
+    
+        SendFile()
+        SendAck()
+    
+    on server side:
+    
+    SendFile() may use SendError() with error code: 0, 1, 2, 4
+    SendAck() may use SendError() with error code: 0, 3, 4
+    
+    on client side:
+    
+    SendFile() may use SendError() with error code: 0, 4
+    SendAck() may use SendError() with error code: 0, 3, 4
+
+* Get package:
+    
+    this package is used to retrieve data/ack form the sender/receiver.
+    It will be used by Core package and need Resources, timer package.
+    On the client side it require Error package to print understandable error (see client Error package description).
+    
+    content:
+    
+        GetAck()
+        GetData()
