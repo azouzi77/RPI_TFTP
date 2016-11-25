@@ -140,8 +140,8 @@ Client Packages:
     
     on client side:
     
-    SendFile() may use SendError() with error code: 0, 4
-    SendAck() may use SendError() with error code: 0, 3, 4
+    SendFile() may use SendError() with error code: 0, 4.
+    SendAck() may use SendError() with error code: 0, 3, 4.
 
 * Get package:
     
