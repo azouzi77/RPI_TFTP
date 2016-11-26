@@ -47,7 +47,7 @@ Client Packages:
     This package will be use by the sender part of the server and the client.
     It will only used to start, restart and cancel timer when the one of those system send data to the other.
     
-    content:
+    Content:
     
         StartTimer()
         CancelTimer()
@@ -58,7 +58,7 @@ Client Packages:
     This package will contain some defined resources for the core package and the main file.
     It will be used by Get, Put and Core Package on both system.
     
-    content:
+    Content:
     
         DATA_SIZE = 512
         READ_REQUEST = 0x01
@@ -85,7 +85,7 @@ Client Packages:
         ->disk full or allocation exceeded (3)
         ->unknown transfer id (4)
     
-    content:
+    Content:
     
         __error_not__defined__ = 0x00
         __file_not_found__ = 0x01
@@ -111,7 +111,7 @@ Client Packages:
         ->unknown transfer id (4)
         ->illegal tftp operation (5)
     
-    content:
+    Content:
     
         __error_not__defined__ = 0x00
         __file_not_found__ = 0x01
@@ -129,28 +129,28 @@ Client Packages:
     It will be used by the Core package and need Resources package.
     On the server side it require Error package for sending error to client (see server Error package). 
     
-    content:
+    Content:
     
         SendFile()
         SendAck()
     
-    on server side:
+    On server side:
     
         SendFile() may use SendError() with error code: 0, 1, 2, 4.
         SendAck() may use SendError() with error code: 0, 3, 4.
     
-    on client side:
+    On client side:
     
         SendFile() may use SendError() with error code: 0, 4.
         SendAck() may use SendError() with error code: 0, 3, 4.
 
 * Get package:
     
-    this package is used to retrieve data/ack form the sender/receiver.
+    This package is used to retrieve data/ack form the sender/receiver.
     It will be used by Core package and need Resources, timer package.
     On the client side it require Error package to print understandable error (see client Error package description).
     
-    content:
+    Content:
     
         GetAck()
         GetData()
@@ -160,7 +160,7 @@ Client Packages:
         getAck() must call IsCritical() on receiving error instead of ack message
         getData() must call IsCritical() on receiving error instead of data message
     
-    if the error is critical the function IsCritical() will return -1 and then we will print the error 
+    If the error is critical the function IsCritical() will return -1 and then we will print the error 
     message, close the connection and exit program.
     
     On server side:
@@ -168,7 +168,7 @@ Client Packages:
         getAck() must call IsCritical() on receiving error instead of ack message
         getData() must call IsCritical() on receiving error instead of data message
     
-    if the error is critical the function will IsCritical() return -1, closing the connection 
+    If the error is critical the function will IsCritical() return -1, closing the connection 
     and then we will back to wait for connection loop.
     
 * Core package:
@@ -177,7 +177,7 @@ Client Packages:
     It will open file to read/write data.
     This package depends on Put, Get and resources.
     
-    content:
+    Content:
     
         GetAnswer()
     
@@ -187,7 +187,7 @@ Client Packages:
     This package is used over the Core package on the client side for 2 reasons, first it will determine 
     file access error, then it will use the Core package in the same way as the Main.py file of the server.
     
-    content:
+    Content:
     
         RequestConnection()
     
@@ -202,13 +202,13 @@ Client Packages:
     
         --p/-port :  port number
     
-    content:
+    Content:
     
         WaitForConnection()
     
     On client side:
     
-    on client side the main program require at least three options:
+    On client side the main program require at least three options:
     
         --H/-hostname : server fqdn or ip address
         --p/-port     : port number to connect to the server
@@ -217,7 +217,7 @@ Client Packages:
         --o/-output   : (optional) output file default will be the input file
         --h/--help    : displaying usages
     
-    content:
+    Content:
     
         main()
     
