@@ -111,6 +111,8 @@ Client Packages:
         ->unknown transfer id (4)
         ->illegal tftp operation (5)
     
+    Yes on our tftp server we will allow rewrite files, it's why we didn't use error n°6 which mean file already exist. 
+    
     Content:
     
         __error_not__defined__ = 0x00
@@ -119,6 +121,7 @@ Client Packages:
         __disk_full__ = 0x03
         __id_error__ = 0x04
         __illegal_operation__ = 0x05
+        __file_exist__ == 0x06
         
         SendError()
         IsCritical()
