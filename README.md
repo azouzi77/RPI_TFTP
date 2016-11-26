@@ -75,7 +75,6 @@ Client Packages:
     both will send error to the other part but works differently on the client and server side.
     
     On client side:
-    ===============
     
     This package is used to print understandable error for the user while he try to send a file to the server or when
     he retrieve a file from the server. It won't send error when try to sending a file that the user can't access, this
@@ -101,7 +100,6 @@ Client Packages:
         PrintError()
     
     On server side:
-    ===============
     
     This package is used to get error from the client while the client is transferring a file and exit the communication
     between them. It used also to send error message to the receiver. Error message send by this package will be:
@@ -137,13 +135,11 @@ Client Packages:
         SendAck()
     
     on server side:
-    ===============
     
         SendFile() may use SendError() with error code: 0, 1, 2, 4.
         SendAck() may use SendError() with error code: 0, 3, 4.
     
     on client side:
-    ===============
     
         SendFile() may use SendError() with error code: 0, 4.
         SendAck() may use SendError() with error code: 0, 3, 4.
@@ -160,7 +156,6 @@ Client Packages:
         GetData()
     
     On client side:
-    ===============
     
         getAck() must call IsCritical() on receiving error instead of ack message
         getData() must call IsCritical() on receiving error instead of data message
@@ -169,7 +164,6 @@ Client Packages:
     message, close the connection and exit program.
     
     On server side:
-    ===============
     
         getAck() must call IsCritical() on receiving error instead of ack message
         getData() must call IsCritical() on receiving error instead of data message
@@ -203,7 +197,6 @@ Client Packages:
     There working differently on both side.
     
     On server side:
-    ===============
     
     On server side the main program require one option: 
     
@@ -214,7 +207,6 @@ Client Packages:
         WaitForConnection()
     
     On client side:
-    ===============
     
     on client side the main program require at least three options:
     
