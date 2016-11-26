@@ -1,46 +1,46 @@
 Server Packages:
 --------------------
 
-       +-------------------------------+-------------------------------+
-       |           Packages            |          Dependencies         |
-       +-------------------------------+-------------------------------+
-       |Timer                          |None                           |
-       +-------------------------------+-------------------------------+
-       |Resources                      |None                           |
-       +-------------------------------+-------------------------------+
-       |Error                          |Resources                      |
-       +-------------------------------+-------------------------------+
-       |Get                            |Resources, Timer               |
-       +-------------------------------+-------------------------------+
-       |Put                            |Resources, Error               |
-       +-------------------------------+-------------------------------+
-       |Core                           |Get, Put, Resources            |
-       +-------------------------------+-------------------------------+
-       |Main.py                        |Core                           |
-       +-------------------------------+-------------------------------+
+        +-------------------------------+-------------------------------+
+        |           Packages            |          Dependencies         |
+        +-------------------------------+-------------------------------+
+        |Timer                          |None                           |
+        +-------------------------------+-------------------------------+
+        |Resources                      |None                           |
+        +-------------------------------+-------------------------------+
+        |Error                          |Resources                      |
+        +-------------------------------+-------------------------------+
+        |Get                            |Resources, Timer               |
+        +-------------------------------+-------------------------------+
+        |Put                            |Resources, Error               |
+        +-------------------------------+-------------------------------+
+        |Core                           |Get, Put, Resources            |
+        +-------------------------------+-------------------------------+
+        |Main.py                        |Core                           |
+        +-------------------------------+-------------------------------+
 
 Client Packages:
 --------------------
 
-       +-------------------------------+-------------------------------+
-       |           Packages            |          Dependencies         |
-       +-------------------------------+-------------------------------+
-       |Timer                          |None                           |
-       +-------------------------------+-------------------------------+
-       |Resources                      |None                           |
-       +-------------------------------+-------------------------------+
-       |Error                          |Resources                      |
-       +-------------------------------+-------------------------------+
-       |Get                            |Resources, Timer, Error        |
-       +-------------------------------+-------------------------------+
-       |Put                            |Resources                      |
-       +-------------------------------+-------------------------------+
-       |Core                           |Get, Put, Resources            |
-       +-------------------------------+-------------------------------+
-       |Request                        |Core                           |
-       +-------------------------------+-------------------------------+
-       |Main.py                        |Request                        |
-       +-------------------------------+-------------------------------+
+        +-------------------------------+-------------------------------+
+        |           Packages            |          Dependencies         |
+        +-------------------------------+-------------------------------+
+        |Timer                          |None                           |
+        +-------------------------------+-------------------------------+
+        |Resources                      |None                           |
+        +-------------------------------+-------------------------------+
+        |Error                          |Resources                      |
+        +-------------------------------+-------------------------------+
+        |Get                            |Resources, Timer, Error        |
+        +-------------------------------+-------------------------------+
+        |Put                            |Resources                      |
+        +-------------------------------+-------------------------------+
+        |Core                           |Get, Put, Resources            |
+        +-------------------------------+-------------------------------+
+        |Request                        |Core                           |
+        +-------------------------------+-------------------------------+
+        |Main.py                        |Request                        |
+        +-------------------------------+-------------------------------+
 
 * Timer package:
 
@@ -74,7 +74,8 @@ Client Packages:
     
     both will send error to the other part but works differently on the client and server side.
     
-    Client Side:
+    On client side:
+    ===============
     
     This package is used to print understandable error for the user while he try to send a file to the server or when
     he retrieve a file from the server. It won't send error when try to sending a file that the user can't access, this
@@ -99,7 +100,8 @@ Client Packages:
         IsCritical()
         PrintError()
     
-    Server Side:
+    On server side:
+    ===============
     
     This package is used to get error from the client while the client is transferring a file and exit the communication
     between them. It used also to send error message to the receiver. Error message send by this package will be:
@@ -135,11 +137,13 @@ Client Packages:
         SendAck()
     
     on server side:
+    ===============
     
         SendFile() may use SendError() with error code: 0, 1, 2, 4.
         SendAck() may use SendError() with error code: 0, 3, 4.
     
     on client side:
+    ===============
     
         SendFile() may use SendError() with error code: 0, 4.
         SendAck() may use SendError() with error code: 0, 3, 4.
@@ -156,17 +160,72 @@ Client Packages:
         GetData()
     
     On client side:
+    ===============
     
         getAck() must call IsCritical() on receiving error instead of ack message
         getData() must call IsCritical() on receiving error instead of data message
-        
+    
     if the error is critical the function IsCritical() will return -1 and then we will print the error 
-    message and close the connection and exit program.
+    message, close the connection and exit program.
     
-    on server side:
+    On server side:
+    ===============
     
         getAck() must call IsCritical() on receiving error instead of ack message
         getData() must call IsCritical() on receiving error instead of data message
-        
+    
     if the error is critical the function will IsCritical() return -1, closing the connection 
     and then we will back to wait for connection loop.
+    
+* Core package:
+
+    This package is the application core system. It's where we determine which request is used.
+    It will open file to read/write data.
+    This package depends on Put, Get and resources.
+    
+    content:
+    
+        GetAnswer()
+    
+    
+* Request package:
+
+    This package is used over the Core package on the client side for 2 reasons, first it will determine 
+    file access error, then it will use the Core package in the same way as the Main.py file of the server.
+    
+    content:
+    
+        RequestConnection()
+    
+* Main.py:
+    
+    This file will be the main file to run while running the client/server.
+    There working differently on both side.
+    
+    On server side:
+    ===============
+    
+    On server side the main program require one option: 
+    
+        --p/-port :  port number
+    
+    content:
+    
+        WaitForConnection()
+    
+    On client side:
+    ===============
+    
+    on client side the main program require at least three options:
+    
+        --H/-hostname : server fqdn or ip address
+        --p/-port     : port number to connect to the server
+        --m/-mode     : (optional) allows read/write default will be read
+        --i/-input    : input file
+        --o/-output   : (optional) output file default will be the input file
+        --h/--help    : displaying usages
+    
+    content:
+    
+        main()
+    
