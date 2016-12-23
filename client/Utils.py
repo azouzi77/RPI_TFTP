@@ -28,7 +28,7 @@ class Structure:
 		return struct(self.OpCode, block, data)
 
 	def request_struct(self, filename, mode):
-		struct = namedtuple("request_struct", "op_code filename offset mode offset")
+		struct = namedtuple("request_struct", "op_code filename offset_file mode offset_mode")
 		return struct(self.OpCode, filename, 0x0,  mode, 0x0)
 
 	def ack_struct(self, block):
