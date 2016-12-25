@@ -18,8 +18,8 @@ class Get:
 		self.socket = socket
 
 	def get_content(self):
-		data = self.socket.recv(client.Resources.PACKET_SIZE)
-		data_struct = struct.Struct("!h h " + str(len(data) - 3) + "s c")
+		data = self.socket.recv(PACKET_SIZE)
+		data_struct = struct.Struct("!h h " + str(len(data) - 4) + "s")
 		unpacked_data = data_struct.unpack(data)                 # get unpacked data
 		if unpacked_data[0] == DATA:                            # data packet
 			self.error = False
@@ -28,7 +28,15 @@ class Get:
 		return unpacked_data[1:2]                               # [blocNum, content]
 
 	def get_ack(self):
-		data = self.socket.recv(4)
-		ack_struct = struct.Struct("!h h")
+		data = self.socket.recv(PACKET_SIZE)
+		if len(data) == 4:
+			ack_struct = struct.Struct("!h h")
+		else:
+			ack_struct = struct.Struct("!h h " + str(len(data) - 5) + "s c")
 		unpacked_data = ack_struct.unpack(data)                 # get unpacked data
-		return unpacked_data[1]
+		if unpacked_data[0] == ACK:                            # data packet
+			self.error = False
+			return unpacked_data[1]
+		else:                                                   # error packet
+			self.error = True
+			return unpacked_data[1:2]

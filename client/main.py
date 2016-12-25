@@ -36,7 +36,7 @@ def main(argv):
 	if None == output_file:
 		output_file = input_file
 	request = App.Request(hostname, port, average)
-	request.request_connection(input_file, output_file, mode, average)
+	request.request_connection(input_file, output_file, mode)
 	return
 
 

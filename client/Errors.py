@@ -56,6 +56,8 @@ class Errors:
 			self.error = 1
 		elif error == self.__file_exist__:
 			self.error = 1
+		else:
+			self.error = 1
 		return self.error
 
 	def print_error(self):
