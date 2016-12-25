@@ -10,14 +10,14 @@ class Put:
         self.socket = socket
 
     def send_ack(self, blocNum):                                # send ACK:
-        opCode = 0x04                                           # opcode = ACK
+        opCode = client.Resources.ACK                                           # opcode = ACK
         values = (opCode, blocNum)
         struct = client.Utils.Structure(opCode)               # pack struct
         ack_struct = struct.ack_struct(blocNum)
         self.socket.sendall(ack_struct)                        # send ACK
 
     def send_content(self, blocNum, data):                      # send Data:
-        opCode = 0x03                                           # opCode = data
+        opCode = client.Resources.DATA                                           # opCode = data
         struct = client.Utils.Structure(opCode)
         data_struct = struct.data_struct(blocNum, data)         # pack struct
         self.socket.sendall(data_struct)                        # send data
