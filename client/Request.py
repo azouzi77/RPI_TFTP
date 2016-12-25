@@ -17,7 +17,7 @@ class Request:
 		self.struct = struct.Struct("!h h 5s")
 		return
 
-	def request_connection(self, input_file, outputfile, mode):
+	def request_connection(self, input_file, outputfile, mode, average):
 		socket = self.socket.connect((self.hostname, self.port))
 		request = None
 		if mode == "put":
@@ -28,5 +28,5 @@ class Request:
 			request = request.request_struct(input_file, client.Resources.OCTAL_MODE)
 		structp = self.struct.pack(*request)
 		socket.sendall(structp)
-		core = client.Core.Core(socket, input_file, outputfile)
+		client.Core.Core(socket, input_file, outputfile, structp)
 		return
