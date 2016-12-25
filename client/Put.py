@@ -8,14 +8,14 @@ class Put:
         self.socket = socket
         
         
-    def ackSend(self, blocNum):                                 # send ACK:
+    def send_ack(self, blocNum):                                 # send ACK:
         opCode = 0x04                                           # opcode = ACK
         values = (opCode, blocNum)
         packed_data = structAck.pack(*values)                   # pack struct
         self.socket.sendall(packed_data)                        # send ACK
         
         
-    def dataSend(self, blocNum, data):                          # send Data:
+    def send_content(self, blocNum, data):                          # send Data:
         opCode = 0x03                                           # opCode = data
         values = (opCode, blocNum, data)
         packed_data = structAck.pack(*values)                   # pack struct

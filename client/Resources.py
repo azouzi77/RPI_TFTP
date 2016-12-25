@@ -5,3 +5,4 @@ DATA = 0x03
 ACK = 0x04
 ERROR = 0x05
 OCTAL_MODE = "octet"
+PACKET_SIZE = 516

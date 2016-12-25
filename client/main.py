@@ -15,6 +15,7 @@ def main(argv):
 	mode = "get"
 	input_file = None
 	output_file = None
+	average = 0
 	for n in range(len(argv)):
 		if argv[n] == "--H" or argv[n] == "--hostname":
 			hostname = argv[n + 1]
@@ -26,14 +27,16 @@ def main(argv):
 			input_file = argv[n + 1]
 		if argv[n] == "--o" or argv[n] == "-output":
 			output_file = argv[n + 1]
+		if argv[n] == "--lose_average" or argv[n] == "-la":
+			average = argv[n + 1]
 		if argv[n] == "--h" or argv[n] == "-help":
 			usage()
 	if None == input_file:
 		print("Missing input file\n")
 	if None == output_file:
 		output_file = input_file
-	request = App.Request(hostname, port)
-	request.RequestConnection(input_file, output_file, mode)
+	request = App.Request(hostname, port, average)
+	request.request_connection(input_file, output_file, mode, average)
 	return
 
 
