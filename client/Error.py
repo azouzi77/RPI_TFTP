@@ -192,7 +192,7 @@ class TftpTimeout(TftpException):
         except TFTPException as terr:
             self.log("write: tftpexception", params=(remote, local, mode), msg="Error: {0}, traceback: {1}".format(err, traceback.format_exc()))
 
-        # Handle all other errors        
+        # Handle all other errors
         except Exception as err:
             self.log("write: outerexception", params=(remote, local, mode), msg="Error: {0}, traceback: {1}".format(err, traceback.format_exc()))
 
