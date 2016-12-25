@@ -1,5 +1,6 @@
 #
 import client.Utils
+import client.Resources
 
 
 class Put:
