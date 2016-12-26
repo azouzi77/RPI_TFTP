@@ -25,7 +25,7 @@ class Get:
 			self.error = False
 		else:                                                   # error packet
 			self.error = True
-		return unpacked_data[1:2]                               # [blocNum, content]
+		return unpacked_data[1:3]                               # [blocNum, content]
 
 	def get_ack(self):
 		data = self.socket.recv(PACKET_SIZE)
@@ -39,4 +39,4 @@ class Get:
 			return unpacked_data[1]
 		else:                                                   # error packet
 			self.error = True
-			return unpacked_data[1:2]
+			return unpacked_data[1:3]
