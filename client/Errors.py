@@ -45,19 +45,19 @@ class Errors:
 	def is_critical(self, error, handle):
 		self.handle = handle
 		if error == self.__error_not_defined__:
-			self.error = 1
+			self.error = True
 		elif error == self.__access_violation__:
-			self.error = 1
+			self.error = True
 		elif error == self.__disk_full__:
-			self.error = 1
+			self.error = True
 		elif error == self.__id_error__:
-			self.error = 0
+			self.error = False
 		elif error == self.__illegal_operation__:
-			self.error = 1
+			self.error = True
 		elif error == self.__file_exist__:
-			self.error = 1
+			self.error = True
 		else:
-			self.error = 1
+			self.error = True
 		return self.error
 
 	def print_error(self):

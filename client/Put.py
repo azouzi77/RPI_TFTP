@@ -12,7 +12,6 @@ class Put:
 
     def send_ack(self, blocNum):                                # send ACK:
         opCode = client.Resources.ACK                                           # opcode = ACK
-        values = (opCode, blocNum)
         struct = client.Utils.Structure(opCode)               # pack struct
         ack_struct = struct.ack_struct(blocNum)
         self.socket.sendall(ack_struct)                        # send ACK

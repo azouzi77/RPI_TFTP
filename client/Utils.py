@@ -7,12 +7,26 @@ from collections import namedtuple
 class FileOpener:
 
 	__author__ = 'Frederick NEY'
+	descriptor = None
 
 	def openfile(self, filename, mode):
 		try:
-			return open(filename, mode=mode)
+			self.descriptor = open(filename, mode=mode)
+			file = True
 		except IOError:
-			return None
+			file = False
+		return file
+
+	def readfile(self):
+		return self.descriptor.read(512)
+
+	def writefile(self, data):
+		try:
+			write = self.descriptor.write(data)
+			self.descriptor.flush()
+		except OSError:
+			write = -1
+		return write
 
 
 class Structure:
