@@ -1,5 +1,4 @@
 from client.Core import *
-from client.Timeout import *
 from client.Get import *
 import client.Utils
 import client.Resources

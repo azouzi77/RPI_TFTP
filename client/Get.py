@@ -1,10 +1,8 @@
 #__author__ = 'Stephan OVERLEN'
 
-import binascii
 import socket
 import struct
 from client.Resources import *
-import client.Utils
 
 
 class Get:

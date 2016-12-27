@@ -4,7 +4,7 @@ from client.Get import *
 from client.Put import *
 from client.Errors import *
 from client.Timeout import *
-from client import Resources, Utils
+from client import Utils
 import socket
 from random import randint
 
