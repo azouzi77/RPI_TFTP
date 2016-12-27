@@ -27,51 +27,55 @@ class Core:
 		return
 
 	def GetAnswer(self, mode):
-		"""
-		if rand > average then send
-		else do not send
-		"""
 		recv = Get(mode, self.__socket)
 		timeout = True
 		timer = Timeout(5.0, self.timer)
-		ack = None
-		connect = 1
+		reply = None
+		connect = True
 		message_id = -1
 		buffer = Utils.FileOpener()
+		errors = Errors()
 		file = False
 		if mode == READ_REQUEST:
 			mode = 0x03
 			file = buffer.openfile(self.output_file, 'wb+')
+			if None == file:
+				self.__send__error__(0x02, errors, "access violation")
 		elif mode == WRITE_REQUEST:
 			mode = 0x01
-			exceed = timer.start_timer()
 			while timeout:
 				timeout = False
 				try:
-					ack = recv.get_ack()
-				except socket.timeout:
-					timeout = True
-					exceed = timer.restart_timer()
+					exceed = timer.start_timer()
 					if exceed == -1:
-						break
-			if ack != None and recv.error == 1:
-				self.__socket.close()
-				return
-			if -1 == exceed:
-				self.__socket.close()
-				return
-			timer.cancel_timer()
-			file = buffer.openfile(self.output_file, 'rb')
-		errors = Errors()
-		if not file:
-			self.__send__error__(mode, errors)
+						self.__socket.close()
+						print("no ack for write request received")
+						return
+					reply = recv.get_ack()
+					if len(reply) == 2 and recv.error == 1:
+						if errors.is_critical(reply[0], reply[1]):
+							errors.print_error()
+							timer.cancel_timer()
+							self.__socket.close()
+							return
+						else:
+							errors.print_error()
+							timeout = True
+							timer.cancel_timer()
+				except socket.timeout:
+					rand = randint(0, 100)
+					if rand > self.average:
+						self.__socket.sendall(self.request_packed)
+					timeout = True
+
+			file = buffer.openfile(self.input_file, 'rb')
+			if None == file:
+				self.__send__error__(0x01, errors, "file not found")
+		if None == file:
 			self.__socket.close()
 			return
 		restart = False
-		max_exceed = 0
-		error_uncritical = 0
-		while (connect):
-
+		while connect:
 			if mode == 0x01:
 				""" send file """
 				get = Get(WRITE_REQUEST, self.__socket)
@@ -79,12 +83,16 @@ class Core:
 				if not restart:
 					data = buffer.readfile()
 					message_id += 1
-				send.send_content(message_id, data)
+				rand = randint(0, 100)
+				if rand > self.average:
+					send.send_content(message_id, data)
+				if len(data) < DATA_SIZE:
+					connect = False
 				try:
 					restart = False
-					if 0 == error_uncritical:
-						max_exceed = timer.start_timer()
+					max_exceed = timer.start_timer()
 					if -1 == max_exceed:
+						print("connection lost")
 						break
 					reply = get.get_ack()
 					if len(reply) == 2:
@@ -93,11 +101,21 @@ class Core:
 							break
 						else:
 							restart = True
-							error_uncritical = 1
 							max_exceed = timer.restart_timer()
+							if -1 == max_exceed:
+								print("connection lost")
+								break
+							self.__send__error__(0x04, errors, "id invalid" + reply[0])
+							errors.print_error()
+							connect = True
 					else:
-						error_uncritical = 0
+						timer.cancel_timer()
+						if reply != message_id:
+							self.__send__error__(0x04, errors, "invalid id" + str(reply))
+							errors.print_error()
+							connect = True
 				except socket.timeout:
+					connect = True
 					restart = True
 			elif mode == 0x03:
 				""" get file """
@@ -105,6 +123,9 @@ class Core:
 				get = Get(READ_REQUEST, self.__socket)
 				try:
 					max_exceed = timer.start_timer()
+					if -1 == max_exceed:
+						print("connection lost")
+						break
 					reply = get.get_content()
 					if get.error:
 						if errors.is_critical(reply[0], reply[1]):
@@ -112,29 +133,52 @@ class Core:
 							break
 						else:
 							restart = True
-							error_uncritical = 1
 							max_exceed = timer.restart_timer()
+							if -1 == max_exceed:
+								print("connection lost")
+								break
 					else:
-						error_uncritical = 0
+						if len(reply[1]) < DATA_SIZE:
+							connect = False
+						timer.cancel_timer()
+						if buffer.writefile(reply[1]) < 0:
+							self.__send__error__(0x03, errors, "disk full")
+							break
 				except socket.timeout:
 					restart = True
 				if not restart:
 					message_id += 1
-					buffer.writefile(data)
-				send.send_ack(data)
+				rand = randint(0, 100)
+				if message_id == 0 and restart:
+					if rand > self.average:
+						self.__socket.sendall(self.request_packed)
+				else:
+					if rand > self.average:
+						send.send_ack(message_id)
+				if not connect:
+					final_ack = False
+					while not final_ack:
+						try:
+							exceed = timer.start_timer()
+							if exceed == -1:
+								break
+							content = recv.get_content()
+						except socket.timeout:
+							final_ack = True
 		self.__socket.close()
 		return
 
-	def __send__error__(self, mode, errors, message):
+	def __send__error__(self, error_id, errors, message):
 		critical = False
-		if mode == 0x03:
+		if error_id == 0x03:
 			errors.send_error(socket=self.__socket, type="disk", message=message)
-			critical = errors.is_critical(0x03, "disk full")
-			errors.send_error(self.__socket, "disk full", "disk")
-		elif mode == 0x01:
+			critical = errors.is_critical(error_id, "disk full")
+		elif error_id == 0x01:
 			errors.send_error(socket=self.__socket, type="file", message=message)
-			critical = errors.is_critical(0x01, "file not found")
-			errors.send_error(self.__socket, "File not found", "file")
-		elif mode == 0x04:
+			critical = errors.is_critical(error_id, "file not found")
+		elif error_id == 0x04:
 			errors.send_error(socket=self.__socket, type="id", message=message)
+		elif error_id == 0x02:
+			errors.send_error(socket=self.__socket, type="acces", message=message)
+			critical = errors.is_critical(error_id, "access violation")
 		return critical

@@ -32,7 +32,7 @@ class Request:
 			request = client.Utils.Structure(client.Resources.READ_REQUEST)
 			request = request.request_struct(input_file, client.Resources.OCTAL_MODE)
 		struct_packed = self.struct.pack(*request)
-		rand = randint(0, self.average)
+		rand = randint(0, 100)
 		if rand >= self.average:
 			socket.sendall(struct_packed)
 		core = Core(socket, input_file, outputfile, struct_packed, self.average, self.socket)
