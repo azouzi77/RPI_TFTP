@@ -31,11 +31,9 @@ class Request:
 			mode = Resources.READ_REQUEST
 			request = Utils.Structure(Resources.READ_REQUEST)
 			request = request.request_struct(input_file, Resources.OCTAL_MODE)
-		print (request)
 		struct_packed = request
 		rand = randint(0, 100)
 		if rand >= self.average:
-			print(struct_packed)
 			socket.sendto(struct_packed, (self.hostname, self.port))
 		core = Core(socket, input_file, outputfile, struct_packed, self.average, self.socket, address=self.hostname, port=self.port)
 		core.GetAnswer(mode)
