@@ -39,12 +39,14 @@ def main(argv):
 		print("No such folder.")
 		usage()
 		sys.exit(-1)
+	socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	socket.bind(("0.0.0.0", port))
+	data, addr = socket.recvfrom(PACKET_SIZE)
 	while True:
-		socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		socket.bind(("0.0.0.0", port))
-		data, addr = socket.recvfrom(PACKET_SIZE)
+		if None == data and None == addr:
+			data, addr = socket.recvfrom(PACKET_SIZE)
 		app = Core(socket, data, addr)
-		app.GetAnswer()
+		data, addr = app.GetAnswer()
 	return
 
 

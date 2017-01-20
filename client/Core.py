@@ -83,7 +83,7 @@ class Core:
 				get = Get(WRITE_REQUEST, self.__socket)
 				send = Put(self.__socket, self.address, self.port)
 				if not restart:
-					data = buffer.readfile(512)
+					data = buffer.readfile()
 					message_id += 1
 				rand = randint(0, 100)
 				if rand > self.average:
