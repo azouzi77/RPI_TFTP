@@ -1,54 +1,50 @@
 #!/usr/bin/python
 
-__author__ = 'Frederick NEY'
+__author__ = 'Frederick NEY and Stephane OVERLEN'
 
 import sys
-from Request import Request
-
+import socket
+from Ressources import *
+from Core import *
+from Get import *
 
 def usage():
 	print("-h or --help\n\tprint this usage")
-	print("-H or --hostname\n\tserver full qualified domain name or ip address")
 	print("-p or --port\n\tport number of the server")
-	print("-m or --mode\n\tput or get")
-	print("-la or --lose-average\n\taverage of packet lost over network")
-	print("-i or --input\n\tinput file")
-	print("-o or --output\n\toutput file")
 
 	return
 
 
 def main(argv):
 	port = 5000
-	mode = "get"
-	input_file = None
-	output_file = None
-	average = 0
+	folder = None
+	packet_loss = 0
+
 	for n in range(len(argv)):
-		if argv[n] == "-H" or argv[n] == "--hostname":
-			hostname = argv[n + 1]
 		if argv[n] == "-p" or argv[n] == "--port":
 			port = int(argv[n + 1])
-		if argv[n] == "-m" or argv[n] == "--mode":
-			mode = argv[n + 1]
-		if argv[n] == "-i" or argv[n] == "--input":
-			input_file = argv[n + 1]
-		if argv[n] == "-o" or argv[n] == "--output":
-			output_file = argv[n + 1]
-		if argv[n] == "--lose-average" or argv[n] == "-la":
-			average = argv[n + 1]
 		if argv[n] == "-h" or argv[n] == "--help":
 			usage()
 			sys.exit(0)
-	if None == input_file:
-		print("Missing input file")
+		if argv[n] == "-la" or argv[n] == "--lose-average":
+			if argv[n + 1] < 0:
+				packet_loss = 0
+			elif argv[n + 1] >= 100:
+				packet_loss = 100
+			else:
+				packet_loss = argv[n + 1]
+		if argv[n] == "-f" or argv[n] == "--folder":
+			folder = argv[n + 1]
+	if None == folder:
+		print("No such folder.")
 		usage()
 		sys.exit(-1)
-
-	if None == output_file:
-		output_file = input_file
-	request = Request(hostname, port, average)
-	request.request_connection(input_file, output_file, mode)
+	while True:
+		socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		socket.bind(("0.0.0.0", port))
+		data, addr = socket.recvfrom(PACKET_SIZE)
+		app = Core(socket, data, addr)
+		app.GetAnswer()
 	return
 
 

@@ -8,10 +8,9 @@ from Errors import *
 from Timeout import *
 import Utils
 import socket
-import struct
 from random import randint
 from Ressources import *
-
+import struct
 
 class Core:
 
@@ -39,45 +38,104 @@ class Core:
 	def GetAnswer(self):
 		buffer = Utils.FileOpener()
 		send = Put(self.__socket, self.address, self.port)
+		errors = Errors(self.address, self.port)
+		data_rec = Structure(self.request)
 		file = None
+		blk_num = 0
 		if self.mode == WRITE_REQUEST:
 			send.send_ack(0)
 			file = buffer.openfile(self.filename, 'wb+')
 		else:
 			file = buffer.openfile(self.filename, 'rb')
-
+		if not file:
+			if self.mode == WRITE_REQUEST:
+				"""--------------------------------------------------------------------------------------------------"""
+				"""                                           access violation                                       """
+				"""--------------------------------------------------------------------------------------------------"""
+				self.__send__error__(0x02, errors, "access violation")
+			if self.mode == READ_REQUEST:
+				"""--------------------------------------------------------------------------------------------------"""
+				"""                                           file not found                                         """
+				"""--------------------------------------------------------------------------------------------------"""
+				self.__send__error__(0x01, errors, "unable to read file : " + self.filename)
+		restart = False
 		while connect:
 			recv = Get(self.mode, self.__socket, self.address, self.port)
-
-			restart = False
 			if self.mode == READ_REQUEST:
+				"""--------------------------------------------------------------------------------------------------"""
+				"""                                           send file                                              """
+				"""--------------------------------------------------------------------------------------------------"""
 				if not restart:
-					file.readline(DATA_SIZE)
-				""" send file """
+					blk = buffer.readfile()
+					blk_num += 1
 				data, addr = self.__socket.recvfrom(PACKET_SIZE)
 				opcode = struct.unpack("!h", data[0:2])[0]
-
 				if opcode == READ_REQUEST:
-					send.send_content(blk_num, blk) """resend block"""
+					"""----------------------------------------------------------------------------------------------"""
+					"""                                         resend ack                                           """
+					"""----------------------------------------------------------------------------------------------"""
+					send.send_content(blk_num, blk)
 					restart = True
 				elif opcode == ACK:
-					send.send_content(blk_num, blk) """send next block"""
-
-					if
-				struct = struct.unpack(data)
-
-
+					"""----------------------------------------------------------------------------------------------"""
+					"""                                        send next block                                       """
+					"""----------------------------------------------------------------------------------------------"""
+					send.send_content(blk_num, blk)
+					structure = data_rec.get_ack_struct(data)
+					if structure.block == blk_num:
+						"""------------------------------------------------------------------------------------------"""
+						"""                                      block matching                                      """
+						"""------------------------------------------------------------------------------------------"""
+						restart = False
+					else:
+						"""------------------------------------------------------------------------------------------"""
+						"""                                      block not matching                                  """
+						"""------------------------------------------------------------------------------------------"""
+						file.close()
+						buffer.openfile(self.filename, 'rb')
+						self.__read_file__(buffer, structure.block)
+						restart = False
+				else:
+					restart = True
 			elif self.mode == WRITE_REQUEST:
-				file = buffer.openfile(self.filename, 'wb+')
+				"""--------------------------------------------------------------------------------------------------"""
+				"""                                           recv file                                              """
+				"""--------------------------------------------------------------------------------------------------"""
 				data, addr = self.__socket.recvfrom(PACKET_SIZE)
 				opcode = struct.unpack("!h", data[0:2])[0]
 				if opcode == WRITE_REQUEST:
+					"""----------------------------------------------------------------------------------------------"""
+					"""                                         resend ack                                           """
+					"""----------------------------------------------------------------------------------------------"""
 					send.send_ack(0)
 				elif opcode == DATA:
+					"""----------------------------------------------------------------------------------------------"""
+					"""                                       recv next data                                         """
+					"""----------------------------------------------------------------------------------------------"""
+					structure = data_rec.get_data_struct(data)
+					if structure.block == blk_num:
+						"""------------------------------------------------------------------------------------------"""
+						"""                                      block matching                                      """
+						"""------------------------------------------------------------------------------------------"""
+						buffer.writefile(structure.data)
+						blk_num += 1
+					else:
+						"""------------------------------------------------------------------------------------------"""
+						"""                                      block not matching                                  """
+						"""------------------------------------------------------------------------------------------"""
+						self.__send__error__(0x04, errors, "wrong block id for file: " + self.filename)
+				else:
+					"""----------------------------------------------------------------------------------------------"""
+					"""                                          other error                                         """
+					"""----------------------------------------------------------------------------------------------"""
+					self.__send__error__(0x05, errors, "Operation not permitted :" + self.mode)
+			else:
+				self.__send__error__(0x05, errors, "Operation not permitted :" + self.mode)
+		return
 
-				""" recv file"""
+		""" recv file"""
 
-
+		"""
 		timeout = True
 		timer = self.timer
 		reply = None
@@ -127,11 +185,11 @@ class Core:
 		restart = False
 		while connect:
 			if mode == 0x03:
-				""" send file """
+				 send file
 				get = Get(WRITE_REQUEST, self.__socket)
 				send = Put(self.__socket, self.address, self.port)
 				if not restart:
-					data = buffer.readfile(512)
+					data = buffer.readfile()
 					message_id += 1
 				rand = randint(0, 100)
 				if rand > self.average:
@@ -169,7 +227,7 @@ class Core:
 					connect = True
 					restart = True
 			elif mode == 0x01:
-				""" get file """
+				 get file
 				send = Put(self.__socket, self.address, self.port)
 				get = Get(READ_REQUEST, self.__socket, self.address, self.port)
 				try:
@@ -217,6 +275,12 @@ class Core:
 						except socket.timeout:
 							final_ack = True
 		self.__socket.close()
+		return
+	"""
+
+	def __read_file__(self, buffer, blk_num):
+		for n in range(1, blk_num):
+			buffer = buffer.readfile()
 		return
 
 	def __send__error__(self, error_id, errors, message):
