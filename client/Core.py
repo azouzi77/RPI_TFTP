@@ -81,9 +81,9 @@ class Core:
 			if mode == 0x01:
 				""" send file """
 				get = Get(WRITE_REQUEST, self.__socket)
-				send = Put(self.__socket)
+				send = Put(self.__socket, self.address, self.port)
 				if not restart:
-					data = buffer.readfile()
+					data = buffer.readfile(512)
 					message_id += 1
 				rand = randint(0, 100)
 				if rand > self.average:
@@ -116,6 +116,7 @@ class Core:
 							self.__send__error__(0x04, errors, "invalid id" + str(reply))
 							errors.print_error()
 							connect = True
+							restart = True
 				except socket.timeout:
 					connect = True
 					restart = True

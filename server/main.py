@@ -19,7 +19,6 @@ def usage():
 
 
 def main(argv):
-	hostname = "localhost"
 	port = 5000
 	mode = "get"
 	input_file = None

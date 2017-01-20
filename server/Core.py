@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 __author__ = 'Frederick NEY'
 
 from Get import *
@@ -6,7 +8,9 @@ from Errors import *
 from Timeout import *
 import Utils
 import socket
+import struct
 from random import randint
+from Ressources import *
 
 
 class Core:
@@ -17,19 +21,63 @@ class Core:
 	output_file = None
 	average = 0
 
-	def __init__(self, socket, input_file, output_file, request_packed, average, timer, address, port):
+	def __init__(self, socket, data, addr, average, path):
 		self.__socket = socket
-		self.input_file = input_file
-		self.output_file = output_file
-		self.request_packed = request_packed
+		self.timer = Timeout(5.0, socket)
+		data = struct.unpack("!h " + str(len(filename)) + "s c " + str(len(mode)) + "s c", data)
+		struct = namedtuple("request_struct", "op_code filename offset_file mode offset_mode")
+		struct(data)
+		self.mode = struct.mode
+		self.filename = struct.filename
+		self.request = struct.op_code
+		self.address = addr[0]
 		self.average = average
-		self.timer = Timeout(5.0, timer)
-		self.address = address
-		self.port = port
+		self.path = path
+		self.port = addr[1]
 		return
 
-	def GetAnswer(self, mode):
-		recv = Get(mode, self.__socket, self.address, self.port)
+	def GetAnswer(self):
+		buffer = Utils.FileOpener()
+		send = Put(self.__socket, self.address, self.port)
+		file = None
+		if self.mode == WRITE_REQUEST:
+			send.send_ack(0)
+			file = buffer.openfile(self.filename, 'wb+')
+		else:
+			file = buffer.openfile(self.filename, 'rb')
+
+		while connect:
+			recv = Get(self.mode, self.__socket, self.address, self.port)
+
+			restart = False
+			if self.mode == READ_REQUEST:
+				if not restart:
+					file.readline(DATA_SIZE)
+				""" send file """
+				data, addr = self.__socket.recvfrom(PACKET_SIZE)
+				opcode = struct.unpack("!h", data[0:2])[0]
+
+				if opcode == READ_REQUEST:
+					send.send_content(blk_num, blk) """resend block"""
+					restart = True
+				elif opcode == ACK:
+					send.send_content(blk_num, blk) """send next block"""
+
+					if
+				struct = struct.unpack(data)
+
+
+			elif self.mode == WRITE_REQUEST:
+				file = buffer.openfile(self.filename, 'wb+')
+				data, addr = self.__socket.recvfrom(PACKET_SIZE)
+				opcode = struct.unpack("!h", data[0:2])[0]
+				if opcode == WRITE_REQUEST:
+					send.send_ack(0)
+				elif opcode == DATA:
+
+				""" recv file"""
+
+
 		timeout = True
 		timer = self.timer
 		reply = None
@@ -78,12 +126,12 @@ class Core:
 			return
 		restart = False
 		while connect:
-			if mode == 0x01:
+			if mode == 0x03:
 				""" send file """
 				get = Get(WRITE_REQUEST, self.__socket)
-				send = Put(self.__socket)
+				send = Put(self.__socket, self.address, self.port)
 				if not restart:
-					data = buffer.readfile()
+					data = buffer.readfile(512)
 					message_id += 1
 				rand = randint(0, 100)
 				if rand > self.average:
@@ -116,10 +164,11 @@ class Core:
 							self.__send__error__(0x04, errors, "invalid id" + str(reply))
 							errors.print_error()
 							connect = True
+							restart = True
 				except socket.timeout:
 					connect = True
 					restart = True
-			elif mode == 0x03:
+			elif mode == 0x01:
 				""" get file """
 				send = Put(self.__socket, self.address, self.port)
 				get = Get(READ_REQUEST, self.__socket, self.address, self.port)

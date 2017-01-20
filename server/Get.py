@@ -19,8 +19,6 @@ class Get:
 
 	def get_content(self):
 		data, addr = self.socket.recvfrom(PACKET_SIZE)
-		print(data)
-		print(len(data))
 		data_struct = struct.Struct("!h h " + str(len(data) - 4) + "s")
 		unpacked_data = data_struct.unpack(data)                 # get unpacked data
 		if unpacked_data[0] == DATA:                            # data packet
