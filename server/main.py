@@ -11,7 +11,8 @@ from Get import *
 def usage():
 	print("-h or --help\n\tprint this usage")
 	print("-p or --port\n\tport number of the server")
-
+	print("-la or --lose-average\n\taverage of packet lost over network")
+	print("-f or --folder\n\tfolder where tftp server will run")
 	return
 
 
@@ -45,7 +46,7 @@ def main(argv):
 	while True:
 		if None == data and None == addr:
 			data, addr = socket.recvfrom(PACKET_SIZE)
-		app = Core(socket, data, addr)
+		app = Core(socket, data, addr, packet_loss, folder)
 		data, addr = app.GetAnswer()
 	return
 

@@ -43,11 +43,17 @@ class Core:
 		file = None
 		blk_num = 0
 		connect = True
+		filename = self.filename.split('/')
+		if 1 == len(filname):
+			self.filename = filename[0]
+		else:
+			self.__send__error__(0x02, errors, "access violation")
+			connect = False
 		if self.request == WRITE_REQUEST:
 			send.send_ack(0)
-			file = buffer.openfile(self.filename, 'wb+')
+			file = buffer.openfile(self.path + self.filename, 'wb+')
 		elif self.request == READ_REQUEST:
-			file = buffer.openfile(self.filename, 'rb')
+			file = buffer.openfile(self.path + self.filename, 'rb')
 		if not file:
 			if self.mode == WRITE_REQUEST:
 				"""--------------------------------------------------------------------------------------------------"""
