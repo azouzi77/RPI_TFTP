@@ -1,6 +1,6 @@
 __author__ = 'admin_master'
-import client.Utils
-import client.Resources
+import Utils
+import Resources
 
 
 class Errors:
@@ -15,31 +15,33 @@ class Errors:
 	handle = None
 	error = 0
 
-	def __init__(self):
+	def __init__(self, address, port):
+		self.address = address
+		self.port = port
 		return
 
 	def send_error(self, socket, message, type):
 		error_struct = client.Utils.Structure(client.Resources.ERROR)
 		if type == "acces":
-			socket.sendall(error_struct.error_struct(self.__access_violation__, message))
+			socket.sendto(error_struct.error_struct(self.__access_violation__, message), (self.address, self.port))
 			return
 		elif type == "file":
-			socket.sendall(error_struct.error_struct(self.__file_not_found__, message))
+			socket.sendto(error_struct.error_struct(self.__file_not_found__, message), (self.address, self.port))
 			return
 		elif type == "disk":
-			socket.sendall(error_struct.error_struct(self.__disk_full__, message))
+			socket.sendto(error_struct.error_struct(self.__disk_full__, message), (self.address, self.port))
 			return
 		elif type == "id":
-			socket.sendall(error_struct.error_struct(self.__id_error__, message))
+			socket.sendto(error_struct.error_struct(self.__id_error__, message), (self.address, self.port))
 			return
 		elif type == "operation":
-			socket.sendall(error_struct.error_struct(self.__illegal_operation__, message))
+			socket.sendto(error_struct.error_struct(self.__illegal_operation__, message), (self.address, self.port))
 			return
 		elif type == "exist":
-			socket.sendall(error_struct.error_struct(self.__file_exist__, message))
+			socket.sendto(error_struct.error_struct(self.__file_exist__, message), (self.address, self.port))
 			return
 		else:
-			socket.sendall(error_struct.error_struct(self.__error_not_defined__, message))
+			socket.sendto(error_struct.error_struct(self.__error_not_defined__, message), (self.address, self.port))
 			return
 
 	def is_critical(self, error, handle):

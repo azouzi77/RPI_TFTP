@@ -1,10 +1,10 @@
 __author__ = 'Frederick NEY'
 
-from client.Get import *
-from client.Put import *
-from client.Errors import *
-from client.Timeout import *
-from client import Utils
+from Get import *
+from Put import *
+from Errors import *
+from Timeout import *
+import Utils
 import socket
 from random import randint
 
@@ -17,24 +17,26 @@ class Core:
 	output_file = None
 	average = 0
 
-	def __init__(self, socket, input_file, output_file, request_packed, average, timer):
+	def __init__(self, socket, input_file, output_file, request_packed, average, timer, address, port):
 		self.__socket = socket
 		self.input_file = input_file
 		self.output_file = output_file
 		self.request_packed = request_packed
 		self.average = average
 		self.timer = Timeout(5.0, timer)
+		self.address = address
+		self.port = port
 		return
 
 	def GetAnswer(self, mode):
-		recv = Get(mode, self.__socket)
+		recv = Get(mode, self.__socket, self.address, self.port)
 		timeout = True
-		timer = Timeout(5.0, self.timer)
+		timer = self.timer
 		reply = None
 		connect = True
 		message_id = -1
 		buffer = Utils.FileOpener()
-		errors = Errors()
+		errors = Errors(self.address, self.port)
 		file = False
 		if mode == READ_REQUEST:
 			mode = 0x03
@@ -65,7 +67,7 @@ class Core:
 				except socket.timeout:
 					rand = randint(0, 100)
 					if rand > self.average:
-						self.__socket.sendall(self.request_packed)
+						self.__socket.sendto(self.request_packed, (self.address, self.port))
 					timeout = True
 
 			file = buffer.openfile(self.input_file, 'rb')
@@ -119,8 +121,8 @@ class Core:
 					restart = True
 			elif mode == 0x03:
 				""" get file """
-				send = Put(self.__socket)
-				get = Get(READ_REQUEST, self.__socket)
+				send = Put(self.__socket, self.address, self.port)
+				get = Get(READ_REQUEST, self.__socket, self.address, self.port)
 				try:
 					max_exceed = timer.start_timer()
 					if -1 == max_exceed:
@@ -151,7 +153,7 @@ class Core:
 				rand = randint(0, 100)
 				if message_id == 0 and restart:
 					if rand > self.average:
-						self.__socket.sendall(self.request_packed)
+						self.__socket.sendto(self.request_packed, (self.address, self.port))
 				else:
 					if rand > self.average:
 						send.send_ack(message_id)

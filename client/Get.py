@@ -2,7 +2,7 @@
 
 import socket
 import struct
-from client.Resources import *
+from Resources import *
 
 
 class Get:
@@ -11,12 +11,16 @@ class Get:
 	error = 0
 	socket = None
 
-	def __init__(self, opcode, socket):
+	def __init__(self, opcode, socket, address, port):
 		self.op_code = opcode
 		self.socket = socket
+		self.address = address
+		self.port = port
 
 	def get_content(self):
-		data = self.socket.recv(PACKET_SIZE)
+		data, addr = self.socket.recvfrom(PACKET_SIZE)
+		print(data)
+		print(len(data))
 		data_struct = struct.Struct("!h h " + str(len(data) - 4) + "s")
 		unpacked_data = data_struct.unpack(data)                 # get unpacked data
 		if unpacked_data[0] == DATA:                            # data packet
@@ -26,7 +30,7 @@ class Get:
 		return unpacked_data[1:3]                               # [blocNum, content]
 
 	def get_ack(self):
-		data = self.socket.recv(PACKET_SIZE)
+		data, addr = self.socket.recvfrom(PACKET_SIZE)
 		if len(data) == 4:
 			ack_struct = struct.Struct("!h h")
 		else:

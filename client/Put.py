@@ -1,26 +1,28 @@
 #
-import client.Utils
-import client.Resources
+import Utils
+import Resources
 
 
 class Put:
     
     socket = None
     
-    def __init__(self, socket):
+    def __init__(self, socket, address, port):
         self.socket = socket
+        self.address = address
+        self.port = port
 
     def send_ack(self, blocNum):                                # send ACK:
-        opCode = client.Resources.ACK                                           # opcode = ACK
-        struct = client.Utils.Structure(opCode)               # pack struct
+        opCode = Resources.ACK                                           # opcode = ACK
+        struct = Utils.Structure(opCode)               # pack struct
         ack_struct = struct.ack_struct(blocNum)
-        self.socket.sendall(ack_struct)                        # send ACK
+        self.socket.sendto(ack_struct, (self.address, self.port))                        # send ACK
 
     def send_content(self, blocNum, data):                      # send Data:
-        opCode = client.Resources.DATA                                           # opCode = data
-        struct = client.Utils.Structure(opCode)
+        opCode = Resources.DATA                                           # opCode = data
+        struct = Utils.Structure(opCode)
         data_struct = struct.data_struct(blocNum, data)         # pack struct
-        self.socket.sendall(data_struct)                        # send data
+        self.socket.sendto(data_struct, (self.address, self.port))                        # send data
         
         
 """
