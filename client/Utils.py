@@ -38,10 +38,9 @@ class Structure:
 		return
 
 	def data_struct(self, block, data):
-		struct = namedtuple("data_struct", "op_code block data offset")
+		struct = namedtuple("data_struct", "op_code block data")
 		struct_handle = Struct("!h h " + str(len(data)) + "s")
-		data = data.encode('utf-8')
-		return struct_handle.pack(*struct(self.OpCode,  block, data))
+		return struct_handle.pack(*struct(self.OpCode, block, data))
 
 	def request_struct(self, filename, mode):
 		struct = namedtuple("request_struct", "op_code filename offset_file mode offset_mode")

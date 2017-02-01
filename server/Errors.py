@@ -21,7 +21,7 @@ class Errors:
 		return
 
 	def send_error(self, socket, message, type):
-		error_struct = client.Utils.Structure(client.Resources.ERROR)
+		error_struct = Utils.Structure(Resources.ERROR)
 		if type == "acces":
 			socket.sendto(error_struct.error_struct(self.__access_violation__, message), (self.address, self.port))
 			return

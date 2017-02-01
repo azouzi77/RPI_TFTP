@@ -45,6 +45,7 @@ class Core:
 				self.__send__error__(0x02, errors, "access violation")
 		elif mode == WRITE_REQUEST:
 			mode = 0x01
+			message_id = 0
 			while timeout:
 				timeout = False
 				try:
@@ -54,7 +55,7 @@ class Core:
 						print("no ack for write request received")
 						return
 					reply = recv.get_ack()
-					if len(reply) == 2 and recv.error == 1:
+					if type(reply) is tuple:
 						if errors.is_critical(reply[0], reply[1]):
 							errors.print_error()
 							timer.cancel_timer()
@@ -66,10 +67,9 @@ class Core:
 							timer.cancel_timer()
 				except socket.timeout:
 					rand = randint(0, 100)
-					if rand > self.average:
+					if rand >= self.average:
 						self.__socket.sendto(self.request_packed, (self.address, self.port))
 					timeout = True
-
 			file = buffer.openfile(self.input_file, 'rb')
 			if None == file:
 				self.__send__error__(0x01, errors, "file not found")
@@ -80,13 +80,13 @@ class Core:
 		while connect:
 			if mode == 0x01:
 				""" send file """
-				get = Get(WRITE_REQUEST, self.__socket)
+				get = Get(WRITE_REQUEST, self.__socket, self.address, self.port)
 				send = Put(self.__socket, self.address, self.port)
 				if not restart:
 					data = buffer.readfile()
 					message_id += 1
 				rand = randint(0, 100)
-				if rand > self.average:
+				if rand >= self.average:
 					send.send_content(message_id, data)
 				if len(data) < DATA_SIZE:
 					connect = False
@@ -97,7 +97,7 @@ class Core:
 						print("connection lost")
 						break
 					reply = get.get_ack()
-					if len(reply) == 2:
+					if type(reply) is tuple:
 						if errors.is_critical(reply[0], reply[1]):
 							errors.print_error()
 							break
@@ -107,7 +107,7 @@ class Core:
 							if -1 == max_exceed:
 								print("connection lost")
 								break
-							self.__send__error__(0x04, errors, "id invalid" + reply[0])
+							self.__send__error__(0x04, errors, "id invalid " + str(reply[0]))
 							errors.print_error()
 							connect = True
 					else:
@@ -144,7 +144,7 @@ class Core:
 						if len(reply[1]) < DATA_SIZE:
 							connect = False
 						timer.cancel_timer()
-						if buffer.writefile(reply[1]) < 0:
+						if buffer.writefile(reply[1]) < len(reply[1]):
 							self.__send__error__(0x03, errors, "disk full")
 							break
 				except socket.timeout:
@@ -153,10 +153,10 @@ class Core:
 					message_id += 1
 				rand = randint(0, 100)
 				if message_id == 0 and restart:
-					if rand > self.average:
+					if rand >= self.average:
 						self.__socket.sendto(self.request_packed, (self.address, self.port))
 				else:
-					if rand > self.average:
+					if rand >= self.average:
 						send.send_ack(message_id)
 				if not connect:
 					final_ack = False
@@ -166,6 +166,9 @@ class Core:
 							if exceed == -1:
 								break
 							content = recv.get_content()
+							rand = randint(0, 100)
+							if rand >= self.average:
+								send.send_ack(message_id)
 						except socket.timeout:
 							final_ack = True
 		self.__socket.close()

@@ -4,9 +4,10 @@ __author__ = 'Frederick NEY and Stephane OVERLEN'
 
 import sys
 import socket
-from Ressources import *
+import Resources
 from Core import *
 from Get import *
+from Timeout import *
 
 def usage():
 	print("-h or --help\n\tprint this usage")
@@ -28,25 +29,27 @@ def main(argv):
 			usage()
 			sys.exit(0)
 		if argv[n] == "-la" or argv[n] == "--lose-average":
-			if argv[n + 1] < 0:
+			if int(argv[n + 1]) < 0:
 				packet_loss = 0
-			elif argv[n + 1] >= 100:
+			elif int(argv[n + 1]) >= 100:
 				packet_loss = 100
 			else:
-				packet_loss = argv[n + 1]
+				packet_loss = int(argv[n + 1])
 		if argv[n] == "-f" or argv[n] == "--folder":
 			folder = argv[n + 1]
 	if None == folder:
 		print("No such folder.")
 		usage()
 		sys.exit(-1)
-	socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	socket.bind(("0.0.0.0", port))
-	data, addr = socket.recvfrom(PACKET_SIZE)
+	socket_srv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	socket_srv.bind(("0.0.0.0", port))
+	data, addr = socket_srv.recvfrom(PACKET_SIZE)
+	timer = Timeout(15.0, socket_srv)
 	while True:
 		if None == data and None == addr:
-			data, addr = socket.recvfrom(PACKET_SIZE)
-		app = Core(socket, data, addr, packet_loss, folder)
+			timer.cancel_timer()
+			data, addr = socket_srv.recvfrom(PACKET_SIZE)
+		app = Core(socket_srv, data, addr, packet_loss, folder)
 		data, addr = app.GetAnswer()
 	return
 

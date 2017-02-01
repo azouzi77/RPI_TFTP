@@ -1,0 +1,835 @@
+diff --git a/TFTP.pdf b/TFTP.pdf
+deleted file mode 100644
+index a3ec374..0000000
+Binary files a/TFTP.pdf and /dev/null differ
+diff --git a/client/Core.py b/client/Core.py
+index e2d3c88..2a180aa 100644
+--- a/client/Core.py
++++ b/client/Core.py
+@@ -45,6 +45,7 @@ class Core:
+ 				self.__send__error__(0x02, errors, "access violation")
+ 		elif mode == WRITE_REQUEST:
+ 			mode = 0x01
++			message_id = 0
+ 			while timeout:
+ 				timeout = False
+ 				try:
+@@ -54,7 +55,7 @@ class Core:
+ 						print("no ack for write request received")
+ 						return
+ 					reply = recv.get_ack()
+-					if len(reply) == 2 and recv.error == 1:
++					if type(reply) is tuple:
+ 						if errors.is_critical(reply[0], reply[1]):
+ 							errors.print_error()
+ 							timer.cancel_timer()
+@@ -66,10 +67,9 @@ class Core:
+ 							timer.cancel_timer()
+ 				except socket.timeout:
+ 					rand = randint(0, 100)
+-					if rand > self.average:
++					if rand >= self.average:
+ 						self.__socket.sendto(self.request_packed, (self.address, self.port))
+ 					timeout = True
+-
+ 			file = buffer.openfile(self.input_file, 'rb')
+ 			if None == file:
+ 				self.__send__error__(0x01, errors, "file not found")
+@@ -80,13 +80,13 @@ class Core:
+ 		while connect:
+ 			if mode == 0x01:
+ 				""" send file """
+-				get = Get(WRITE_REQUEST, self.__socket)
++				get = Get(WRITE_REQUEST, self.__socket, self.address, self.port)
+ 				send = Put(self.__socket, self.address, self.port)
+ 				if not restart:
+ 					data = buffer.readfile()
+ 					message_id += 1
+ 				rand = randint(0, 100)
+-				if rand > self.average:
++				if rand >= self.average:
+ 					send.send_content(message_id, data)
+ 				if len(data) < DATA_SIZE:
+ 					connect = False
+@@ -97,7 +97,7 @@ class Core:
+ 						print("connection lost")
+ 						break
+ 					reply = get.get_ack()
+-					if len(reply) == 2:
++					if type(reply) is tuple:
+ 						if errors.is_critical(reply[0], reply[1]):
+ 							errors.print_error()
+ 							break
+@@ -107,7 +107,7 @@ class Core:
+ 							if -1 == max_exceed:
+ 								print("connection lost")
+ 								break
+-							self.__send__error__(0x04, errors, "id invalid" + reply[0])
++							self.__send__error__(0x04, errors, "id invalid " + str(reply[0]))
+ 							errors.print_error()
+ 							connect = True
+ 					else:
+@@ -144,7 +144,7 @@ class Core:
+ 						if len(reply[1]) < DATA_SIZE:
+ 							connect = False
+ 						timer.cancel_timer()
+-						if buffer.writefile(reply[1]) < 0:
++						if buffer.writefile(reply[1]) < len(reply[1]):
+ 							self.__send__error__(0x03, errors, "disk full")
+ 							break
+ 				except socket.timeout:
+@@ -153,10 +153,10 @@ class Core:
+ 					message_id += 1
+ 				rand = randint(0, 100)
+ 				if message_id == 0 and restart:
+-					if rand > self.average:
++					if rand >= self.average:
+ 						self.__socket.sendto(self.request_packed, (self.address, self.port))
+ 				else:
+-					if rand > self.average:
++					if rand >= self.average:
+ 						send.send_ack(message_id)
+ 				if not connect:
+ 					final_ack = False
+@@ -166,6 +166,9 @@ class Core:
+ 							if exceed == -1:
+ 								break
+ 							content = recv.get_content()
++							rand = randint(0, 100)
++							if rand >= self.average:
++								send.send_ack(message_id)
+ 						except socket.timeout:
+ 							final_ack = True
+ 		self.__socket.close()
+diff --git a/client/Errors.py b/client/Errors.py
+index c57e054..0fe7b03 100644
+--- a/client/Errors.py
++++ b/client/Errors.py
+@@ -21,7 +21,7 @@ class Errors:
+ 		return
+ 
+ 	def send_error(self, socket, message, type):
+-		error_struct = client.Utils.Structure(client.Resources.ERROR)
++		error_struct = Utils.Structure(Resources.ERROR)
+ 		if type == "acces":
+ 			socket.sendto(error_struct.error_struct(self.__access_violation__, message), (self.address, self.port))
+ 			return
+diff --git a/client/Utils.py b/client/Utils.py
+index 99f7e21..b516810 100644
+--- a/client/Utils.py
++++ b/client/Utils.py
+@@ -38,10 +38,9 @@ class Structure:
+ 		return
+ 
+ 	def data_struct(self, block, data):
+-		struct = namedtuple("data_struct", "op_code block data offset")
++		struct = namedtuple("data_struct", "op_code block data")
+ 		struct_handle = Struct("!h h " + str(len(data)) + "s")
+-		data = data.encode('utf-8')
+-		return struct_handle.pack(*struct(self.OpCode,  block, data))
++		return struct_handle.pack(*struct(self.OpCode, block, data))
+ 
+ 	def request_struct(self, filename, mode):
+ 		struct = namedtuple("request_struct", "op_code filename offset_file mode offset_mode")
+diff --git a/client_tftp.py b/client_tftp.py
+deleted file mode 100644
+index 518e13f..0000000
+--- a/client_tftp.py
++++ /dev/null
+@@ -1,118 +0,0 @@
+-#
+-"""
+-        values = (nodePort, msg)
+-        packer = struct.Struct('I s')
+-        packed_data = packer.pack(*values)
+-        
+-        sock.sendall(packed_data)                               # send message
+-        sock.close()                                            # close socket
+-
+-        unpacker = struct.Struct('I s')
+-        data = self.clientsocket.recv(unpacker.size)
+-        unpacked_data = unpacker.unpack(data)               # get unpacked data
+-        self.clientsocket.close()
+-"""
+-
+-
+-"""
+-apt-get tftpd
+-
+-Client TFTP
+-
+-
+-doctest pour inclure les tests unitaires
+-
+-
+-"""
+-import binascii
+-import socket
+-import struct
+-import sys
+-
+-structSend = struct.Struct('!h 7s h 5s h')
+-structData = struct.Struct('!h h 512s')
+-structAck = struct.Struct('!h h')
+-blocNum = 0
+-
+-def dataGet(sock):
+-    data = sock.recv(structData.size)
+-    unpacked_data = structData.unpack(data)                 # get unpacked data
+-
+-    for receivedData in unpacked_data:
+-        print str(receivedData) + ' ' + str(len(str(receivedData)))
+-
+-
+-def dataSend(sock, blocNum, dataType):
+-    if dataType == 'ACK':
+-        opCode = 0x04                                           # opcode = ACK
+-        values = (opCode, blocNum)
+-        packed_data = structAck.pack(*values)                   # pack struct
+-        sock.sendall(packed_data)                               # send ACK
+-    
+-
+-def reqSend(sock, req, fileName, loss):
+-    if req == 'get':                                        # set opCode
+-        opCode = 0x01
+-        
+-        values = (opCode, fileName, 0, 'octet', 0)
+-        packed_data = structSend.pack(*values)                  # pack struct
+-
+-        for sentData in values:
+-            print 'sending ' + str(sentData)
+-            
+-        sock.sendall(packed_data)                               # send request
+-        
+-        data = sock.recv(structData.size)
+-        unpacked_data = structData.unpack(data)                 # get unpacked data
+-        
+-        return unpacked_data
+-        
+-    elif req == 'put':
+-        opCode = 0x02
+-        
+-        
+-    
+-
+-
+-def connect(dns, port):                                     # create socket
+-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+-    server_address = (dns, port)
+-    print >>sys.stderr, 'connecting to %s port %s' % server_address
+-    sock.connect(server_address)
+-    
+-    return sock
+-
+-
+-func = ""
+-#    var = raw_input(">> ")                                              # get user input
+-
+-################################# HARD CODING ######################################
+-func = 'mytftpc'
+-req = 'get'
+-dns = 'localhost'
+-port = 10000
+-fileName = 'test100'
+-loss = 0
+-################################# HARD CODING ######################################
+-
+-#    func, req, dns, port, fileName, loss = var.split(" ", 5)
+-
+-print func + ' ' + req + ' ' + dns + ' ' + str(port) + ' ' + fileName + ' ' + str(loss)
+-
+-while func != 'mytftpc':
+-    print 'usage: mytftpc <put/get> <nom_DNS_du_serveur> <numero_de_port> <nom_fichier> <taux_de_perte>'
+-
+-while req != 'put' and req != 'get':
+-    print 'usage: mytftpc <put|get> <nom_DNS_du_serveur> <numero_de_port> <nom_fichier> <taux_de_perte>'
+-
+-sock = connect(dns, port)
+-data = reqSend(sock, req, fileName, loss)     # send requet & get server datas
+-dataSend(sock, blocNum, 'ACK')
+-
+-while(len(data[2]) == 512):
+-    if data[0] == 0x03:
+-        dataGet(sock)
+-        dataSend(sock, blocNum, data[0])
+-        
+-print >>sys.stderr, 'closing socket'
+-sock.close()
+diff --git a/main.py b/main.py
+deleted file mode 100644
+index 5995997..0000000
+--- a/main.py
++++ /dev/null
+@@ -1,55 +0,0 @@
+-#!/usr/bin/python
+-
+-__author__ = 'Frederick NEY and Stephane OVERLEN'
+-
+-import sys
+-import socket
+-from Ressources import *
+-from Core import *
+-from Get import *
+-
+-def usage():
+-	print("-h or --help\n\tprint this usage")
+-	print("-p or --port\n\tport number of the server")
+-
+-	return
+-
+-
+-def main(argv):
+-	port = 5000
+-    folder = None
+-	packet_loss = 0
+-
+-	for n in range(len(argv)):
+-		if argv[n] == "-p" or argv[n] == "--port":
+-			port = int(argv[n + 1])
+-		if argv[n] == "-h" or argv[n] == "--help":
+-			usage()
+-			sys.exit(0)
+-		if argv[n] == "-la" or argv[n] == "--lose-average" 
+-		    if argv[n + 1] < 0
+-		        packet_loss = 0
+-	        elif argv[n + 1] >= 100
+-	            packet_loss = 100
+-            else
+-                packet_loss = argv[n + 1]
+-        if argv[n] == "-f" or argv[n] == "--folder"
+-            folder = argv[n + 1]
+-    if None == folder
+-        print("No such folder.")
+-        usage()
+-        sys.exit(-1)
+-	    
+-
+-    while True:
+-        socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+-        socket.bind(("0.0.0.0", port))
+-        data, addr = socket.recvfrom(PACKET_SIZE)
+-        
+-        app = Core(socket, data, addr)
+-        app.GetAnswer()
+-	return
+-
+-
+-if __name__ == '__main__':
+-	main(sys.argv)
+diff --git a/overlen.zip b/overlen.zip
+deleted file mode 100644
+index 17a5fb7..0000000
+Binary files a/overlen.zip and /dev/null differ
+diff --git a/server/Core.py b/server/Core.py
+index 37a5cc7..a00197e 100644
+--- a/server/Core.py
++++ b/server/Core.py
+@@ -6,10 +6,10 @@ from Get import *
+ from Put import *
+ from Errors import *
+ from Timeout import *
+-import Utils
++from Utils import *
+ import socket
+ from random import randint
+-from Ressources import *
++import Resources
+ import struct
+ 
+ class Core:
+@@ -23,12 +23,10 @@ class Core:
+ 	def __init__(self, socket, data, addr, average, path):
+ 		self.__socket = socket
+ 		self.timer = Timeout(5.0, socket)
+-		data = struct.unpack("!h " + str(len(filename)) + "s c " + str(len(mode)) + "s c", data)
+-		struct = namedtuple("request_struct", "op_code filename offset_file mode offset_mode")
+-		struct(data)
+-		self.mode = struct.mode
+-		self.filename = struct.filename
+-		self.request = struct.op_code
++		struct_request = struct.unpack("!h " + str(len(data) - 9) + "s c 5s c", data)
++		self.mode = struct_request[0]
++		self.filename = struct_request[1].decode()
++		self.request = struct_request[3].decode()
+ 		self.address = addr[0]
+ 		self.average = average
+ 		self.path = path
+@@ -43,18 +41,19 @@ class Core:
+ 		file = None
+ 		blk_num = 0
+ 		connect = True
++		print("Filename : " + self.filename)
+ 		filename = self.filename.split('/')
+-		if 1 == len(filname):
++		if 1 == len(filename):
+ 			self.filename = filename[0]
+ 		else:
+ 			self.__send__error__(0x02, errors, "access violation")
+ 			connect = False
+-		if self.request == WRITE_REQUEST:
++		if self.mode == WRITE_REQUEST:
+ 			send.send_ack(0)
+ 			file = buffer.openfile(self.path + self.filename, 'wb+')
+-		elif self.request == READ_REQUEST:
++		elif self.mode == READ_REQUEST:
+ 			file = buffer.openfile(self.path + self.filename, 'rb')
+-		if not file:
++		if file is None:
+ 			if self.mode == WRITE_REQUEST:
+ 				"""--------------------------------------------------------------------------------------------------"""
+ 				"""                                           access violation                                       """
+@@ -74,7 +73,7 @@ class Core:
+ 		while connect:
+ 			init = False
+ 			recv = Get(self.mode, self.__socket, self.address, self.port)
+-			if self.request == READ_REQUEST:
++			if self.mode == READ_REQUEST:
+ 				"""--------------------------------------------------------------------------------------------------"""
+ 				"""                                           send file                                              """
+ 				"""--------------------------------------------------------------------------------------------------"""
+@@ -86,7 +85,7 @@ class Core:
+ 					"""                                         resend init ack                                      """
+ 					"""----------------------------------------------------------------------------------------------"""
+ 					rand = randint(0, 100)
+-					if rand > self.average:
++					if rand >= self.average:
+ 						send.send_content(blk_num, blk)
+ 					init = True
+ 					data, addr = self.__socket.recvfrom(PACKET_SIZE)
+@@ -98,7 +97,7 @@ class Core:
+ 					"""                                        send next block or lost block                         """
+ 					"""----------------------------------------------------------------------------------------------"""
+ 					rand = randint(0, 100)
+-					if rand > self.average or blk < DATA_SIZE:
++					if rand >= self.average or len(blk) < DATA_SIZE:
+ 						send.send_content(blk_num, blk)
+ 						restart = False
+ 					else:
+@@ -121,14 +120,14 @@ class Core:
+ 						"""                                      block not matching                                  """
+ 						"""------------------------------------------------------------------------------------------"""
+ 						rand = randint(0, 100)
+-						if rand > self.average:
++						if rand >= self.average:
+ 							self.__send__error__(0x04, errors, 'invalid id : ' + structure.block)
+ 						restart = True
+ 					else:
+ 						restart = True
+ 				else:
+ 					restart = True
+-				if blk < DATA_SIZE:
++				if len(blk) < DATA_SIZE:
+ 					timer = Timeout(5.0, self.__socket)
+ 					"""----------------------------------------------------------------------------------------------"""
+ 					"""                                       final blk                                              """
+@@ -142,20 +141,28 @@ class Core:
+ 							else:
+ 								data, addr = self.__socket.recvfrom(PACKET_SIZE)
+ 								opcode = struct.unpack("!h", data[0:2])[0]
+-								if opcode == READ_REQUEST or opcode == WRITE_REQUEST:
++								if opcode == ACK:
++									if struct.unpack('!h', data[2:4])[0] == blk_num:
++										connect = False
++										print("True " + str(blk_num) + " " + str(data[2:4]))
++									else:
++										print("False " + str(blk_num) + " " + str(data[2:4]))
++										connect = True
++								elif opcode == READ_REQUEST or opcode == WRITE_REQUEST:
+ 									return (data, addr)
+ 								else:
+ 									send.send_content(blk_num, blk)
+ 									connect = True
+ 						except socket.timeout:
+ 							connect = False
+-			elif self.request == WRITE_REQUEST:
++			elif self.mode == WRITE_REQUEST:
+ 				"""--------------------------------------------------------------------------------------------------"""
+ 				"""                                           recv file                                              """
+ 				"""--------------------------------------------------------------------------------------------------"""
+ 				data, addr = self.__socket.recvfrom(PACKET_SIZE)
+ 				self.port = addr[1]
+ 				send.port = addr[1]
++				timer = Timeout(5.0, self.__socket)
+ 				opcode = struct.unpack("!h", data[0:2])[0]
+ 				if opcode == WRITE_REQUEST and blk_num == 0:
+ 					"""----------------------------------------------------------------------------------------------"""
+@@ -182,14 +189,14 @@ class Core:
+ 								write_err = False
+ 						blk_num += 1
+ 						rand = randint(0, 100)
+-						if rand > self.average or len(structure.data) < DATA_SIZE:
++						if rand >= self.average or len(structure.data) < DATA_SIZE:
+ 							if not write_err:
+ 								send.port = addr[1]
+ 								send.send_ack(structure.block)
+ 							restart = False
+ 						else:
+ 							rand = randint(0, 100)
+-							if rand > self.average:
++							if rand >= self.average:
+ 								self.__send__error__(0x04, errors, "invalid transfer id : " + structure.block)
+ 							restart = True
+ 					else:
+@@ -204,7 +211,7 @@ class Core:
+ 					"""----------------------------------------------------------------------------------------------"""
+ 					self.__send__error__(0x05, errors, "Operation not permitted during transfer:" + opcode)
+ 					connect = False
+-				if structure.block < PACKET_SIZE and opcode == DATA:
++				if len(structure.data) < DATA_SIZE and opcode == DATA:
+ 					"""----------------------------------------------------------------------------------------------"""
+ 					"""                                       final ack                                              """
+ 					"""----------------------------------------------------------------------------------------------"""
+@@ -215,17 +222,24 @@ class Core:
+ 								print("closing connection")
+ 								connect = False
+ 							else:
+-								data, addr = self.__socket.recvfrom()
++								data, addr = self.__socket.recvfrom(PACKET_SIZE)
+ 								opcode = struct.unpack("!h", data[0:2])[0]
+-								if opcode == READ_REQUEST or opcode == WRITE_REQUEST:
+-									return (data, addr)
++								if opcode == ACK:
++									if struct.unpack("!h", data[2:4])[0] == blk_num:
++										print("True " + str(blk_num) + " " + str(data[2:4]))
++										connect = False
++									else:
++										print("False " + str(blk_num) + " " + str(data[2:4]))
++										connect = True
++								elif opcode == READ_REQUEST or opcode == WRITE_REQUEST:
++									return data, addr
+ 								else:
+ 									send.send_ack(blk_num)
+ 									connect = True
+ 						except socket.timeout:
+ 							connect = False
+ 			else:
+-				self.__send__error__(0x05, errors, "Operation not permitted :" + self.request)
++				self.__send__error__(0x05, errors, "Operation not permitted :" + str(self.mode))
+ 				connect = False
+ 		return None, None
+ 
+diff --git a/server/Errors.py b/server/Errors.py
+index c57e054..0fe7b03 100644
+--- a/server/Errors.py
++++ b/server/Errors.py
+@@ -21,7 +21,7 @@ class Errors:
+ 		return
+ 
+ 	def send_error(self, socket, message, type):
+-		error_struct = client.Utils.Structure(client.Resources.ERROR)
++		error_struct = Utils.Structure(Resources.ERROR)
+ 		if type == "acces":
+ 			socket.sendto(error_struct.error_struct(self.__access_violation__, message), (self.address, self.port))
+ 			return
+diff --git a/server/Utils.py b/server/Utils.py
+index 8c650e2..d043eae 100644
+--- a/server/Utils.py
++++ b/server/Utils.py
+@@ -39,10 +39,9 @@ class Structure:
+ 		return
+ 
+ 	def data_struct(self, block, data):
+-		struct = namedtuple("data_struct", "op_code block data offset")
++		struct = namedtuple("data_struct", "op_code block data")
+ 		struct_handle = Struct("!h h " + str(len(data)) + "s")
+-		data = data.encode('utf-8')
+-		return struct_handle.pack(*struct(self.OpCode,  block, data))
++		return struct_handle.pack(*struct(self.OpCode, block, data))
+ 
+ 	def request_struct(self, filename, mode):
+ 		struct = namedtuple("request_struct", "op_code filename offset_file mode offset_mode")
+@@ -63,9 +62,9 @@ class Structure:
+ 		return struct_handle.pack(*struct(self.OpCode, error_code, error_message, b'\0'))
+ 
+ 	def get_data_struct(self, struct_recv):
+-		struct_handle = namedtuple("data_struct", "op_code block data offset")
+-		struct_unpack = Struct("!h h " + str(len(struct_recv) - 4) + "s", struct_recv)
+-		return struct_handle(struct_unpack[0], struct_unpack[1], struct_unpack[2].decode())
++		struct_handle = namedtuple("data_struct", "op_code block data")
++		struct_unpack = struct.unpack("!h h " + str(len(struct_recv) - 4) + "s", struct_recv)
++		return struct_handle(struct_unpack[0], struct_unpack[1], struct_unpack[2])
+ 
+ 	def get_request_struct(self, struct_recv):
+ 		struct_handle = namedtuple("request_struct", "op_code filename offset_file mode offset_mode")
+diff --git a/server/main.py b/server/main.py
+index d9410ef..d7da3fb 100644
+--- a/server/main.py
++++ b/server/main.py
+@@ -4,9 +4,10 @@ __author__ = 'Frederick NEY and Stephane OVERLEN'
+ 
+ import sys
+ import socket
+-from Ressources import *
++import Resources
+ from Core import *
+ from Get import *
++from Timeout import *
+ 
+ def usage():
+ 	print("-h or --help\n\tprint this usage")
+@@ -28,25 +29,27 @@ def main(argv):
+ 			usage()
+ 			sys.exit(0)
+ 		if argv[n] == "-la" or argv[n] == "--lose-average":
+-			if argv[n + 1] < 0:
++			if int(argv[n + 1]) < 0:
+ 				packet_loss = 0
+-			elif argv[n + 1] >= 100:
++			elif int(argv[n + 1]) >= 100:
+ 				packet_loss = 100
+ 			else:
+-				packet_loss = argv[n + 1]
++				packet_loss = int(argv[n + 1])
+ 		if argv[n] == "-f" or argv[n] == "--folder":
+ 			folder = argv[n + 1]
+ 	if None == folder:
+ 		print("No such folder.")
+ 		usage()
+ 		sys.exit(-1)
+-	socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+-	socket.bind(("0.0.0.0", port))
+-	data, addr = socket.recvfrom(PACKET_SIZE)
++	socket_srv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++	socket_srv.bind(("0.0.0.0", port))
++	data, addr = socket_srv.recvfrom(PACKET_SIZE)
++	timer = Timeout(15.0, socket_srv)
+ 	while True:
+ 		if None == data and None == addr:
+-			data, addr = socket.recvfrom(PACKET_SIZE)
+-		app = Core(socket, data, addr, packet_loss, folder)
++			timer.cancel_timer()
++			data, addr = socket_srv.recvfrom(PACKET_SIZE)
++		app = Core(socket_srv, data, addr, packet_loss, folder)
+ 		data, addr = app.GetAnswer()
+ 	return
+ 
+diff --git a/server_tftp.py b/server_tftp.py
+deleted file mode 100644
+index 43f18b3..0000000
+--- a/server_tftp.py
++++ /dev/null
+@@ -1,48 +0,0 @@
+-"""
+-TFTP Server
+-"""
+-import socket
+-import sys
+-import struct
+-
+-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+-content = 'qwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertzqwertz'
+-blocNum = 0x00
+-structReceived = struct.Struct('!h 7s h 5s h')
+-structData = struct.Struct('!h h 512s')
+-structAck = struct.Struct('!h h')
+-
+-server_address = ('localhost', 10000)
+-print >>sys.stderr, 'Starting up on %s port %s' % server_address
+-
+-sock.bind(server_address)                                       # bind
+-sock.listen(1)                                                  #listen
+-
+-while True:
+-    print >>sys.stderr, 'waiting for a connection'
+-    
+-    try:
+-        print 'accept connection:'
+-        connection, client_address = sock.accept()              # accept
+-        data = connection.recv(structReceived.size)
+-        unpacked_data = structReceived.unpack(data)             # get unpacked data
+-        
+-    except Exception as e:
+-        print("Error connection: %s" % (e))
+-        
+-    if unpacked_data[0] == 0x01:                                # if get
+-        for i in range(2):
+-            opCode = 0x03                                       # opCode = data
+-            offset = blocNum * 512
+-            print offset
+-            data = content[offset : offset+512]                     # data = 512 bytes
+-            values = (opCode, blocNum, data)
+-            packed_data = structData.pack(*values)
+-            
+-            connection.sendall(packed_data)                         # send pycked_data
+-            blocNum += 1                                            # increment blockNum
+-            
+-            data = connection.recv(structReceived.size)
+-            unpacked_data = structAck.unpack(data)             # get unpacked data
+-            
+-            print str(unpacked_data[0]) + str(unpacked_data[1]) 
+diff --git a/start_timer.py b/start_timer.py
+deleted file mode 100644
+index 3d69e50..0000000
+--- a/start_timer.py
++++ /dev/null
+@@ -1,95 +0,0 @@
+-
+-
+-from time import sleep
+-from threading import Timer
+-
+-
+-class Flag ():
+-    flag = 1
+-alpha = Flag()
+-
+-def stop_timer():
+-            #flag a zero
+-            alpha.flag = 0
+-            
+-            
+-def cancel_timer():
+-            #flag a un
+-            alpha.flag = 1
+-
+-
+-
+-def start_timer():
+-            print("Timeout!")# After X seconds, "Timeout!" will be printed
+-
+-
+-
+-t = Timer(7.0, start_timer)
+-t.start()              # After 7 seconds, "Timeout!" will be printed if no event
+-stop_timer()            #event1
+-cancel_timer()          #event2
+-
+-
+-sleep(5.0)
+-
+-
+-flag = alpha.flag
+-if flag==1:     # wait event
+-     t.cancel()        
+-     print('timer_canceled') #if flag 1
+-if flag==0:
+-            t.cancel()
+-            print('timer_stop') #if flag 0
+-            
+-            
+- #exception pour lever timer
+- 
+-"""
+-def timeout(func, args=(), kwargs={}, timeout_duration=1, default=None):
+-    import signal
+-
+-    class TimeoutError(Exception):
+-        pass
+-
+-    def handler(signum, frame):
+-        raise TimeoutError()
+-
+-    # set the timeout handler
+-    signal.signal(signal.SIGALRM, handler) 
+-    signal.alarm(timeout_duration)
+-    try:
+-        result = func(*args, **kwargs)
+-    except TimeoutError as exc:
+-        result = default
+-    finally:
+-        signal.alarm(0)
+-
+-    return result
+-
+-
+-
+-
+-class watchdog():
+-  def _timeout(self):
+-    #raise self
+-    raise TypeError
+-
+-  def __init__(self):
+-    self.t = Timer(1, self._timeout)
+-
+-  def start(self):
+-    self.t.start()
+-
+-try:
+-  w = watchdog()
+-  w.start()
+-  sleep(2)
+-except TypeError, e:
+-  print "Exception caught"
+-else:
+-  print "Of course I didn't catch the exception"
+-  """          
+-
+-     
+-     
+- 
+diff --git a/start_timer2.py b/start_timer2.py
+deleted file mode 100644
+index 6a6594a..0000000
+--- a/start_timer2.py
++++ /dev/null
+@@ -1,61 +0,0 @@
+-import signal
+-import time
+-import random
+- 
+-
+-   
+-
+-    
+-class Timeout(Exception):
+-            pass
+-            
+-    
+- 
+- 
+-            def __init__(self, sec):
+-                        self.sec = sec
+-                        self.max_timer = random.randint(9, 16)  # Integer from 1 to 10, endpoints included
+-                        self.count=0
+- 
+-            def star_timer(self):
+-                        if count == max_timer:
+-                                    return -1;
+-                        else: 
+-                                    count = 1
+-                                    timer.start(3);
+-                                    return 0;
+-                                    print('timer_started')
+-        
+-            def restart_timer(self):
+-                        if count == maxtimer:
+-                                    return -1;
+-                        else:
+-                                    count= count+1;
+-                                    print('timer_restarted')
+-             
+-            def cancel_timer(self):
+-                        count == 0;
+-                        print('timer_canceled')
+-        
+-        
+-    
+- 
+-def main():
+-            try:
+-                        Timeout(3)
+-                        i = 0
+-                        while(1):
+-                             i = i + 1       
+-            except Exception:
+-                        print("exception")
+-            
+-            
+-            
+-            
+-            
+-            
+-            
+-if __name__=="__main__":
+-            main()
+-
+-    
+diff --git a/tftp_client_state_machine.png b/tftp_client_state_machine.png
+deleted file mode 100644
+index baed703..0000000
+Binary files a/tftp_client_state_machine.png and /dev/null differ
+diff --git a/tftp_server_state_machine.png b/tftp_server_state_machine.png
+deleted file mode 100644
+index 2df0005..0000000
+Binary files a/tftp_server_state_machine.png and /dev/null differ
